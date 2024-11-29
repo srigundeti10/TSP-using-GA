@@ -1,0 +1,180 @@
+#include <bits/stdc++.h>
+#include <limits.h>
+using namespace std;
+
+// Number of destinations in the TSP
+#define NUM_CITIES 5
+
+// City labels
+#define CITIES "ABCDE"
+
+// Starting city index
+#define START_CITY 0
+
+// Initial population size for the genetic algorithm
+#define POPULATION_SIZE 10
+
+// Structure to represent a solution (gnome)
+// The 'path' string holds the city traversal sequence
+// 'fitness' stores the total distance (fitness value) of the path
+
+struct solution {
+    string path;
+    int fitness;
+};
+
+// Function to generate a random number between the given range (inclusive)
+int generate_random(int start, int end)
+{
+    int range = end - start;
+    int rand_num = start + rand() % range;
+    return rand_num;
+}
+
+// Function to check if a city has already been visited (if it's in the path)
+bool is_duplicate(string path, char city)
+{
+    for (int i = 0; i < path.size(); i++) {
+        if (path[i] == city)
+            return true;
+    }
+    return false;
+}
+
+// Function to mutate a path (swap two cities in the path to create variation)
+string mutate_path(string path)
+{
+    while (true) {
+        int idx1 = generate_random(1, NUM_CITIES);
+        int idx2 = generate_random(1, NUM_CITIES);
+        if (idx1 != idx2) {
+            char temp = path[idx1];
+            path[idx1] = path[idx2];
+            path[idx2] = temp;
+            break;
+        }
+    }
+    return path;
+}
+
+// Function to create a valid initial path (gnome) for the population
+string create_initial_path()
+{
+    string path = "0";  // Start from the first city
+    while (true) {
+        if (path.size() == NUM_CITIES) {
+            path += path[0];  // Return to the starting city
+            break;
+        }
+        int city = generate_random(1, NUM_CITIES);
+        if (!is_duplicate(path, (char)(city + 48)))  // Check if the city is already in the path
+            path += (char)(city + 48);
+    }
+    return path;
+}
+
+// Function to calculate the fitness of a path (sum of distances between consecutive cities)
+int calculate_fitness(string path)
+{
+    int dist_matrix[NUM_CITIES][NUM_CITIES] = { { 0, 2, INT_MAX, 12, 5 },
+                                                { 2, 0, 4, 8, INT_MAX },
+                                                { INT_MAX, 4, 0, 3, 3 },
+                                                { 12, 8, 3, 0, 10 },
+                                                { 5, INT_MAX, 3, 10, 0 } };
+    int total_distance = 0;
+    for (int i = 0; i < path.size() - 1; i++) {
+        if (dist_matrix[path[i] - 48][path[i + 1] - 48] == INT_MAX)
+            return INT_MAX;  // If no path exists between the cities
+        total_distance += dist_matrix[path[i] - 48][path[i + 1] - 48];
+    }
+    return total_distance;
+}
+
+// Function to simulate cooling for the temperature parameter
+int cool_temperature(int temp)
+{
+    return (90 * temp) / 100;
+}
+
+// Comparator to compare fitness values of two solutions
+bool compare_fitness(struct solution sol1, struct solution sol2)
+{
+    return sol1.fitness < sol2.fitness;
+}
+
+// Genetic algorithm implementation for solving the TSP
+void solve_TSP(int dist_matrix[NUM_CITIES][NUM_CITIES])
+{
+    int generation = 1;
+    int max_generations = 5;
+
+    vector<struct solution> population;
+    struct solution temp_sol;
+
+    // Generate the initial population
+    for (int i = 0; i < POPULATION_SIZE; i++) {
+        temp_sol.path = create_initial_path();
+        temp_sol.fitness = calculate_fitness(temp_sol.path);
+        population.push_back(temp_sol);
+    }
+
+    cout << "\nInitial population: " << endl
+         << "Path     Fitness Value\n";
+    for (int i = 0; i < POPULATION_SIZE; i++)
+        cout << population[i].path << " "
+             << population[i].fitness << endl;
+    cout << "\n";
+
+    int temperature = 10000;
+
+    // Main loop for genetic algorithm (population evolution)
+    while (temperature > 1000 && generation <= max_generations) {
+        sort(population.begin(), population.end(), compare_fitness);
+        cout << "\nCurrent Temperature: " << temperature << "\n";
+        vector<struct solution> new_population;
+
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            struct solution parent1 = population[i];
+
+            while (true) {
+                string mutated = mutate_path(parent1.path);
+                struct solution new_solution;
+                new_solution.path = mutated;
+                new_solution.fitness = calculate_fitness(new_solution.path);
+
+                // Accept the new solution if it's better or with a certain probability
+                if (new_solution.fitness <= population[i].fitness) {
+                    new_population.push_back(new_solution);
+                    break;
+                }
+                else {
+                    float prob = pow(2.7, -1 * ((float)(new_solution.fitness - population[i].fitness) / temperature));
+                    if (prob > 0.5) {
+                        new_population.push_back(new_solution);
+                        break;
+                    }
+                }
+            }
+        }
+
+        temperature = cool_temperature(temperature);
+        population = new_population;
+        cout << "Generation " << generation << " \n";
+        cout << "Path     Fitness Value\n";
+
+        for (int i = 0; i < POPULATION_SIZE; i++)
+            cout << population[i].path << " "
+                 << population[i].fitness << endl;
+        generation++;
+    }
+}
+
+int main()
+{
+    int dist_matrix[NUM_CITIES][NUM_CITIES] = { { 0, 2, INT_MAX, 12, 5 },
+                                                { 2, 0, 4, 8, INT_MAX },
+                                                { INT_MAX, 4, 0, 3, 3 },
+                                                { 12, 8, 3, 0, 10 },
+                                                { 5, INT_MAX, 3, 10, 0 } };
+    solve_TSP(dist_matrix);
+}
